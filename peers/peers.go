@@ -35,7 +35,6 @@ type (
 		FirstSeen           time.Time `json:"firstSeen"`
 		LastScanAttempt     time.Time `json:"lastScanAttempt"`
 		LastSuccessfulScan  time.Time `json:"lastSuccessfulScan"`
-		IsFullNode          bool      `json:"isFullNode"`
 		ConsecutiveFailures int       `json:"consecutiveFailures"`
 		FailureRate         float64   `json:"failureRate"`
 	}
