@@ -75,7 +75,7 @@ func NewHandler(peers Peers) http.Handler {
 		peers: peers,
 	}
 	return jape.Mux(map[string]jape.Handler{
-		"GET /peers":          s.handleGETPeers,
-		"GET /peers/bootsrap": s.handleGETBootstrapPeers,
+		"GET /peers":           s.handleGETPeers,
+		"GET /peers/bootstrap": s.handleGETBootstrapPeers,
 	})
 }

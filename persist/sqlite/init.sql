@@ -9,7 +9,7 @@ CREATE TABLE syncer_peers (
 	failure_rate REAL NOT NULL
 );
 CREATE INDEX syncer_peers_next_scan_attempt_idx ON syncer_peers (peer_address, next_scan_attempt);
-CREATE INDEX syncer_peers_is_full_node_idx ON syncer_peers (peer_address, failure_rate, current_height);
+CREATE INDEX syncer_peers_failure_rate_last_successful_scan_idx ON syncer_peers (failure_rate ASC, last_successful_scan DESC);
 
 CREATE TABLE peer_locations (
 	peer_address TEXT REFERENCES syncer_peers(peer_address) NOT NULL,
