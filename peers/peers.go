@@ -228,6 +228,7 @@ func (m *Manager) Peers(offset, limit int) ([]Peer, error) {
 // BootstrapPeers returns a list of peers suitable for bootstrapping a new node.
 // The final list selects reliable peers with a minimum geographic diversity.
 func (m *Manager) BootstrapPeers(limit int) (peers []string, err error) {
+	log := m.log.Named("bootstrap")
 	for i := 0; len(peers) < limit; i += limit {
 		batch, err := m.store.Peers(i*limit, limit)
 		if err != nil {
@@ -238,16 +239,25 @@ func (m *Manager) BootstrapPeers(limit int) (peers []string, err error) {
 
 		ss := geoip.NewSpacedSet(50) // require 50km spacing
 		for _, p := range batch {
-			if p.FailureRate >= 0.75 || time.Since(p.LastScanAttempt) > 24*time.Hour {
+			log := log.With(zap.String("peer", p.Address))
+			switch {
+			case p.FailureRate > 0.75:
+				log.Debug("skipping unreliable peer for bootstrap list", zap.Float64("failureRate", p.FailureRate))
 				continue // skip unreliable peers
+			case time.Since(p.LastScanAttempt) > 24*time.Hour:
+				log.Debug("skipping stale peer for bootstrap list", zap.Time("lastScanAttempt", p.LastScanAttempt))
+				continue // skip stale peers
+
 			}
 
 			locations, err := m.store.PeerLocations(p.Address)
 			if err != nil {
 				return nil, fmt.Errorf("failed to retrieve peer locations for %q: %w", p.Address, err)
 			} else if len(locations) == 0 {
+				log.Debug("skipping peer with no location data for bootstrap list")
 				continue // skip peers with no location data
 			} else if !ss.Add(locations) {
+				log.Debug("skipping peer too close to existing bootstrap peer")
 				continue // skip peers that are too close to existing peers
 			}
 		}
