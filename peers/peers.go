@@ -121,7 +121,7 @@ func (m *Manager) scanPeer(ctx context.Context, scan *PeerScan, minHeight uint64
 				}
 
 				if exists, err := m.store.AddPeer(p); err != nil {
-					log.Error("failed to add shared peer", zap.String("sharedPeer", p), zap.Error(err))
+					log.Panic("failed to add shared peer", zap.String("sharedPeer", p), zap.Error(err))
 				} else if !exists {
 					log.Info("discovered new peer", zap.String("discovered", p))
 				}
