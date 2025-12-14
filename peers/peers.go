@@ -260,6 +260,7 @@ func (m *Manager) BootstrapPeers(limit int) (peers []string, err error) {
 				log.Debug("skipping peer too close to existing bootstrap peer", zap.Stringers("locations", locations))
 				continue // skip peers that are too close to existing peers
 			}
+			peers = append(peers, p.Address)
 		}
 	}
 	return
