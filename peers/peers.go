@@ -18,6 +18,10 @@ import (
 	"go.uber.org/zap"
 )
 
+// maxSyncLag is the maximum acceptable lag behind the
+// consensus tip for a peer to be considered healthy.
+const maxSyncLag = 3 * 24 * time.Hour
+
 type (
 	// A PeerScan represents the result of scanning a peer.
 	PeerScan struct {
@@ -193,10 +197,10 @@ func (m *Manager) scanPeers(ctx context.Context) error {
 		log := log.With(zap.Stringer("tip", tip))
 		log.Debug("consensus tip retrieved")
 
-		var minHeight uint64
-		minBlocks := uint64((24*time.Hour)/m.genesisState.Network.BlockInterval) * 3
-		if tip.Height >= minBlocks {
-			minHeight = tip.Height - minBlocks
+		var minPeerHeight uint64
+		maxBlockLag := uint64(maxSyncLag / m.genesisState.Network.BlockInterval)
+		if tip.Height >= maxBlockLag {
+			minPeerHeight = tip.Height - maxBlockLag
 		}
 
 		for _, p := range peers {
@@ -215,7 +219,7 @@ func (m *Manager) scanPeers(ctx context.Context) error {
 				defer cancel()
 
 				log.Debug("starting peer scan")
-				m.scanPeer(ctx, &scan, minHeight, log)
+				m.scanPeer(ctx, &scan, minPeerHeight, log)
 				if scan.Successful {
 					scan.NextScanTime = time.Now().Add(m.scanInterval)
 				} else {
