@@ -88,9 +88,10 @@ ORDER BY next_scan_attempt ASC LIMIT $2`, sqlTime(time.Now()), limit)
 func (s *Store) Peers(offset, limit int) (results []peers.Peer, err error) {
 	err = s.transaction(func(tx *txn) error {
 		rows, err := tx.Query(`SELECT peer_address, first_seen, last_successful_scan, last_scan_attempt, consecutive_failures, failure_rate 
-FROM syncer_peers 
-ORDER BY failure_rate ASC, last_successful_scan
-DESC LIMIT $1 OFFSET $2`, limit, offset)
+FROM syncer_peers
+WHERE last_scan_attempt <> 0
+ORDER BY failure_rate ASC, last_successful_scan DESC
+LIMIT $1 OFFSET $2`, limit, offset)
 		if err != nil {
 			return err
 		}
