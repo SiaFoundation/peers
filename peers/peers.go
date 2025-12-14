@@ -210,6 +210,10 @@ func (m *Manager) scanPeers(ctx context.Context) error {
 					Address:     p.Address,
 					FailureRate: p.FailureRate,
 				}
+
+				ctx, cancel := context.WithTimeout(ctx, time.Minute)
+				defer cancel()
+
 				log.Debug("starting peer scan")
 				m.scanPeer(ctx, &scan, minHeight, log)
 				if scan.Successful {

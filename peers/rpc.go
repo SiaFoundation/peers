@@ -14,11 +14,20 @@ import (
 // withGatewayTransport dials the given address and performs a gateway handshake,
 // then calls the provided function with the established transport.
 func withGatewayTransport(ctx context.Context, addr string, genesisID types.BlockID, fn func(*gateway.Transport) error) error {
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
 	conn, err := (&net.Dialer{}).DialContext(ctx, "tcp", addr)
 	if err != nil {
 		return fmt.Errorf("failed to connect to %s: %w", addr, err)
 	}
 	defer conn.Close()
+
+	go func() {
+		// force close the connection when the context is done
+		<-ctx.Done()
+		conn.Close()
+	}()
 
 	transport, err := gateway.Dial(conn, gateway.Header{
 		GenesisID:  genesisID,
