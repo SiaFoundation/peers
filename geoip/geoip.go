@@ -2,6 +2,7 @@ package geoip
 
 import (
 	_ "embed" // needed for geolocation database
+	"fmt"
 	"math"
 	"net"
 	"sync"
@@ -21,6 +22,10 @@ type Location struct {
 
 	Latitude  float64 `json:"latitude"`
 	Longitude float64 `json:"longitude"`
+}
+
+func (l Location) String() string {
+	return fmt.Sprintf("%s (%.3f, %.3f)", l.CountryCode, l.Latitude, l.Longitude)
 }
 
 // HaversineDistanceKm returns the great-circle distance between the location and

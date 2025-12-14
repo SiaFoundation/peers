@@ -244,8 +244,8 @@ func (m *Manager) BootstrapPeers(limit int) (peers []string, err error) {
 			case p.FailureRate > 0.75:
 				log.Debug("skipping unreliable peer for bootstrap list", zap.Float64("failureRate", p.FailureRate))
 				continue // skip unreliable peers
-			case time.Since(p.LastScanAttempt) > 24*time.Hour:
-				log.Debug("skipping stale peer for bootstrap list", zap.Time("lastScanAttempt", p.LastScanAttempt))
+			case time.Since(p.LastSuccessfulScan) > 24*time.Hour:
+				log.Debug("skipping stale peer for bootstrap list", zap.Time("lastSuccessfulScan", p.LastSuccessfulScan))
 				continue // skip stale peers
 
 			}
@@ -257,7 +257,7 @@ func (m *Manager) BootstrapPeers(limit int) (peers []string, err error) {
 				log.Debug("skipping peer with no location data for bootstrap list")
 				continue // skip peers with no location data
 			} else if !ss.Add(locations) {
-				log.Debug("skipping peer too close to existing bootstrap peer")
+				log.Debug("skipping peer too close to existing bootstrap peer", zap.Stringers("locations", locations))
 				continue // skip peers that are too close to existing peers
 			}
 		}
