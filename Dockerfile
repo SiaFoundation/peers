@@ -3,7 +3,7 @@ FROM docker.io/library/golang:1.25 AS builder
 WORKDIR /peerd
 
 # install git lfs
-RUN apt-get -y update && apt-get install -y --no-install-recommends git-lfs && rm -rf /var/lib/apt/lists/*
+RUN apt-get -y update && apt-get install -y --no-install-recommends git-lfs
 
 # mark as safe in git
 RUN git config --global --add safe.directory .
