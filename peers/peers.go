@@ -106,7 +106,7 @@ func (m *Manager) scanPeer(ctx context.Context, scan *PeerScan, minHeight uint64
 		log.Debug("headers retrieved", zap.Uint64("currentHeight", scan.CurrentHeight))
 
 		// try to discover new peers
-		for range 10 {
+		for range 5 {
 			if ctx.Err() != nil {
 				return ctx.Err()
 			}
@@ -125,11 +125,6 @@ func (m *Manager) scanPeer(ctx context.Context, scan *PeerScan, minHeight uint64
 				} else if !exists {
 					log.Info("discovered new peer", zap.String("discovered", p))
 				}
-			}
-			select {
-			case <-ctx.Done():
-				return ctx.Err()
-			case <-time.After(250 * time.Millisecond):
 			}
 		}
 
