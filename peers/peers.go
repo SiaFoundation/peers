@@ -6,6 +6,7 @@ import (
 	"math"
 	"net"
 	"runtime"
+	"strconv"
 	"sync"
 	"time"
 
@@ -70,18 +71,55 @@ type (
 	}
 )
 
+func validPeerAddress(address string) bool {
+	host, portStr, err := net.SplitHostPort(address)
+	if err != nil {
+		return false
+	} else if port, err := strconv.ParseUint(portStr, 10, 32); err != nil || port == 0 || port > 65535 {
+		return false
+	}
+
+	ips, err := net.LookupIP(host)
+	if err != nil {
+		return false
+	}
+	for _, ip := range ips {
+		if ip == nil || ip.IsLoopback() || ip.IsPrivate() || ip.IsUnspecified() {
+			return false
+		}
+	}
+	return true
+}
+
 func (m *Manager) scanPeer(ctx context.Context, scan *PeerScan, minHeight uint64, log *zap.Logger) {
 	err := withGatewayTransport(ctx, scan.Address, m.genesisID, func(t *gateway.Transport) error {
+		// nodes that can return headers for the first 10 blocks are likely
+		// full nodes
+		_, rem, err := getHeaders(t, m.genesisState, 10, 15*time.Second)
+		if err != nil {
+			return fmt.Errorf("failed to get headers: %w", err)
+		}
+		scan.CurrentHeight = rem + 10 // approximate the current height based on the number of headers remaining
+		if scan.CurrentHeight < minHeight {
+			return fmt.Errorf("peer height %d is below minimum acceptable height %d", scan.CurrentHeight, minHeight)
+		}
+		log.Debug("headers retrieved", zap.Uint64("currentHeight", scan.CurrentHeight))
+
 		// try to discover new peers
 		for range 10 {
 			if ctx.Err() != nil {
 				return ctx.Err()
 			}
+
 			sharedPeers, err := sharePeers(t, 10*time.Second)
 			if err != nil || len(sharedPeers) == 0 {
 				break // not critical, move on
 			}
 			for _, p := range sharedPeers {
+				if !validPeerAddress(p) {
+					continue
+				}
+
 				if exists, err := m.store.AddPeer(p); err != nil {
 					log.Error("failed to add shared peer", zap.String("sharedPeer", p), zap.Error(err))
 				} else if !exists {
@@ -94,18 +132,6 @@ func (m *Manager) scanPeer(ctx context.Context, scan *PeerScan, minHeight uint64
 			case <-time.After(250 * time.Millisecond):
 			}
 		}
-
-		// nodes that can return headers for the first 10 blocks are likely
-		// full nodes
-		_, rem, err := getHeaders(t, m.genesisState, 10, 15*time.Second)
-		if err != nil {
-			return fmt.Errorf("failed to get headers: %w", err)
-		}
-		scan.CurrentHeight = rem + 10 // approximate the current height based on the number of headers remaining
-		if scan.CurrentHeight < minHeight {
-			return fmt.Errorf("peer height %d is below minimum acceptable height %d", scan.CurrentHeight, minHeight)
-		}
-		log.Debug("headers retrieved", zap.Uint64("currentHeight", scan.CurrentHeight))
 
 		return nil
 	})
