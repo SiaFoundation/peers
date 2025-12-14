@@ -11,6 +11,7 @@ type SpacedSet struct {
 func NewSpacedSet(minDistanceKm float64) *SpacedSet {
 	return &SpacedSet{
 		minDistanceKm: minDistanceKm,
+		seen:          make(map[Location]struct{}),
 	}
 }
 
