@@ -53,13 +53,16 @@ func main() {
 		level        zap.AtomicLevel
 		scanInterval time.Duration
 		scanThreads  int
+		explorerURL  string
 	)
 
 	flag.StringVar(&networkName, "network", "mainnet", "the network to use (mainnet, zen)")
 	flag.StringVar(&dir, "dir", ".", "the directory to store data")
+	flag.StringVar(&explorerURL, "explorer", "", "the URL of the explorer API to use (default is network specific)")
 	flag.TextVar(&level, "log.level", zap.NewAtomicLevelAt(zap.InfoLevel), "the log level")
 	flag.DurationVar(&scanInterval, "scan.interval", 3*time.Hour, "the interval between successful scans")
 	flag.IntVar(&scanThreads, "scan.threads", runtime.NumCPU(), "the number of threads to use for scanning")
+
 	flag.Parse()
 
 	log := initLog(runtime.GOOS != "windows", level)
@@ -67,16 +70,19 @@ func main() {
 	var network *consensus.Network
 	var genesis types.Block
 	var bootstrapPeers []string
-	var explorerURL string
 	switch networkName {
 	case "mainnet":
 		bootstrapPeers = syncer.MainnetBootstrapPeers
 		network, genesis = chain.Mainnet()
-		explorerURL = "https://api.siascan.com"
+		if explorerURL == "" {
+			explorerURL = "https://api.siascan.com"
+		}
 	case "zen":
 		bootstrapPeers = syncer.ZenBootstrapPeers
 		network, genesis = chain.TestnetZen()
-		explorerURL = "https://api.siascan.com/zen"
+		if explorerURL == "" {
+			explorerURL = "https://api.siascan.com/zen"
+		}
 	}
 	genesisID := genesis.ID()
 	genesisState, _ := consensus.ApplyBlock(network.GenesisState(), genesis, consensus.V1BlockSupplement{Transactions: make([]consensus.V1TransactionSupplement, len(genesis.Transactions))}, time.Time{})
