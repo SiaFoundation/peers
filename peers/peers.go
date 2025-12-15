@@ -110,25 +110,19 @@ func (m *Manager) scanPeer(ctx context.Context, scan *PeerScan, minHeight uint64
 		log.Debug("headers retrieved", zap.Uint64("currentHeight", scan.CurrentHeight))
 
 		// try to discover new peers
-		for range 5 {
-			if ctx.Err() != nil {
-				return ctx.Err()
+		sharedPeers, err := sharePeers(t, 10*time.Second)
+		if err != nil || len(sharedPeers) == 0 {
+			return nil // not critical
+		}
+		for _, p := range sharedPeers {
+			if !validPeerAddress(p) {
+				continue
 			}
 
-			sharedPeers, err := sharePeers(t, 10*time.Second)
-			if err != nil || len(sharedPeers) == 0 {
-				break // not critical, move on
-			}
-			for _, p := range sharedPeers {
-				if !validPeerAddress(p) {
-					continue
-				}
-
-				if exists, err := m.store.AddPeer(p); err != nil {
-					log.Panic("failed to add shared peer", zap.String("sharedPeer", p), zap.Error(err))
-				} else if !exists {
-					log.Info("discovered new peer", zap.String("discovered", p))
-				}
+			if exists, err := m.store.AddPeer(p); err != nil {
+				log.Panic("failed to add shared peer", zap.String("sharedPeer", p), zap.Error(err))
+			} else if !exists {
+				log.Info("discovered new peer", zap.String("discovered", p))
 			}
 		}
 
