@@ -64,8 +64,8 @@ func (s *Store) PeersForScan(limit int) (results []peers.Peer, err error) {
 	err = s.transaction(func(tx *txn) error {
 		rows, err := tx.Query(`SELECT peer_address, first_seen, last_successful_scan, last_scan_attempt, consecutive_failures, failure_rate 
 FROM syncer_peers 
-WHERE next_scan_attempt <= $1 
-ORDER BY next_scan_attempt ASC LIMIT $2`, sqlTime(time.Now()), limit)
+WHERE next_scan_attempt <= $1
+ORDER BY first_seen ASC, next_scan_attempt ASC LIMIT $2`, sqlTime(time.Now()), limit)
 		if err != nil {
 			return err
 		}
