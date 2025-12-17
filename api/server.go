@@ -1,6 +1,7 @@
 package api
 
 import (
+	"errors"
 	"net/http"
 
 	"go.sia.tech/jape"
@@ -11,10 +12,26 @@ import (
 type Peers interface {
 	BootstrapPeers(limit int) ([]string, error)
 	Peers(offset, limit int) ([]peers.Peer, error)
+	Peer(addr string) (peers.Peer, error)
 }
 
 type server struct {
 	peers Peers
+}
+
+func (s *server) handleGETPeer(jc jape.Context) {
+	var addr string
+	jc.DecodeParam("addr", &addr)
+
+	peer, err := s.peers.Peer(addr)
+	if errors.Is(err, peers.ErrNotFound) {
+		jc.Error(err, http.StatusNotFound)
+		return
+	} else if err != nil {
+		jc.Error(err, http.StatusInternalServerError)
+		return
+	}
+	jc.Encode(peer)
 }
 
 func (s *server) handleGETPeers(jc jape.Context) {
@@ -75,7 +92,8 @@ func NewHandler(peers Peers) http.Handler {
 		peers: peers,
 	}
 	return jape.Mux(map[string]jape.Handler{
-		"GET /peers":           s.handleGETPeers,
-		"GET /peers/bootstrap": s.handleGETBootstrapPeers,
+		"GET /peers":       s.handleGETPeers,
+		"GET /peers/:addr": s.handleGETPeer,
+		"GET /bootstrap":   s.handleGETBootstrapPeers,
 	})
 }

@@ -1,6 +1,8 @@
 package sqlite
 
 import (
+	"database/sql"
+	"errors"
 	"fmt"
 	"time"
 
@@ -107,6 +109,21 @@ LIMIT $1 OFFSET $2`, limit, offset)
 			results = append(results, p)
 		}
 		return rows.Err()
+	})
+	return
+}
+
+// Peer retrieves a single peer by its address.
+func (s *Store) Peer(addr string) (p peers.Peer, err error) {
+	err = s.transaction(func(tx *txn) error {
+		row := tx.QueryRow(`SELECT peer_address, first_seen, last_successful_scan, last_scan_attempt, consecutive_failures, failure_rate, successful_scans 
+FROM syncer_peers
+WHERE peer_address=$1`, addr)
+		p, err = scanPeer(row)
+		if errors.Is(err, sql.ErrNoRows) {
+			return peers.ErrNotFound
+		}
+		return err
 	})
 	return
 }

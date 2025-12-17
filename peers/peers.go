@@ -57,6 +57,7 @@ type (
 		AddScan(scan PeerScan) error
 		PeersForScan(timeout time.Duration, limit int) ([]Peer, error)
 
+		Peer(address string) (Peer, error)
 		Peers(offset, limit int) ([]Peer, error)
 		PeerLocations(address string) ([]geoip.Location, error)
 	}
@@ -81,6 +82,9 @@ type (
 		scanInterval time.Duration
 	}
 )
+
+// ErrNotFound is returned when a peer is not found in the database.
+var ErrNotFound = errors.New("not found")
 
 func validPeerAddress(address string) bool {
 	host, portStr, err := net.SplitHostPort(address)
@@ -266,6 +270,10 @@ func (m *Manager) Close() error {
 // Peers retrieves a list of peers from the database with the specified offset and limit.
 func (m *Manager) Peers(offset, limit int) ([]Peer, error) {
 	return m.store.Peers(offset, limit)
+}
+
+func (m *Manager) Peer(addr string) (Peer, error) {
+	return m.store.Peer(addr)
 }
 
 // BootstrapPeers returns a list of peers suitable for bootstrapping a new node.
