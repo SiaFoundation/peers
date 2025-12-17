@@ -2,6 +2,7 @@ package peers
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math"
 	"net"
@@ -224,6 +225,12 @@ func (m *Manager) scanPeers(ctx context.Context) error {
 
 				log.Debug("starting peer scan")
 				m.scanPeer(ctx, &scan, minPeerHeight, log)
+				if errors.Is(ctx.Err(), context.Canceled) {
+					// scan was cancelled, do not update the database
+					log.Info("peer scan cancelled")
+					return
+				}
+
 				if scan.Successful {
 					scan.NextScanTime = time.Now().Add(m.scanInterval)
 				} else {
