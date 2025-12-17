@@ -5,11 +5,12 @@ CREATE TABLE syncer_peers (
 	last_scan_attempt INTEGER NOT NULL,
 	last_successful_scan INTEGER NOT NULL,
 	next_scan_attempt INTEGER NOT NULL,
+	successful_scans INTEGER NOT NULL,
 	consecutive_failures INTEGER NOT NULL,
 	failure_rate REAL NOT NULL
 );
 CREATE INDEX syncer_peers_next_scan_attempt_idx ON syncer_peers (peer_address, next_scan_attempt);
-CREATE INDEX syncer_peers_failure_rate_last_successful_scan_idx ON syncer_peers (failure_rate ASC, last_successful_scan DESC);
+CREATE INDEX syncer_peers_failure_rate_successful_scans_last_successful_scan_idx ON syncer_peers (failure_rate ASC, successful_scans DESC, last_successful_scan DESC);
 
 CREATE TABLE peer_locations (
 	peer_address TEXT REFERENCES syncer_peers(peer_address) NOT NULL,

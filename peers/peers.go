@@ -18,9 +18,14 @@ import (
 	"go.uber.org/zap"
 )
 
-// maxSyncLag is the maximum acceptable lag behind the
-// consensus tip for a peer to be considered healthy.
-const maxSyncLag = 3 * 24 * time.Hour
+const (
+	// maxSyncLag is the maximum acceptable lag behind the
+	// consensus tip for a peer to be considered healthy.
+	maxSyncLag = 3 * 24 * time.Hour
+
+	// scanTimeout is the maximum duration to wait for a peer scan to complete.
+	scanTimeout = 2 * time.Minute
+)
 
 type (
 	// A PeerScan represents the result of scanning a peer.
@@ -42,13 +47,14 @@ type (
 		LastSuccessfulScan  time.Time `json:"lastSuccessfulScan"`
 		ConsecutiveFailures int       `json:"consecutiveFailures"`
 		FailureRate         float64   `json:"failureRate"`
+		SuccessfulScans     uint64    `json:"successfulScans"`
 	}
 
 	// A Store provides an interface for persisting and retrieving peer information.
 	Store interface {
 		AddPeer(address string) (exists bool, err error)
 		AddScan(scan PeerScan) error
-		PeersForScan(limit int) ([]Peer, error)
+		PeersForScan(timeout time.Duration, limit int) ([]Peer, error)
 
 		Peers(offset, limit int) ([]Peer, error)
 		PeerLocations(address string) ([]geoip.Location, error)
@@ -171,18 +177,17 @@ func (m *Manager) scanPeers(ctx context.Context) error {
 	var wg sync.WaitGroup
 	sema := make(chan struct{}, m.scanThreads)
 	for {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		default:
+		if ctx.Err() != nil {
+			break
 		}
 
-		peers, err := m.store.PeersForScan(m.scanThreads)
+		peers, err := m.store.PeersForScan(2*scanTimeout, m.scanThreads) // additional timeout to avoid races with ongoing scans
 		if err != nil {
 			return fmt.Errorf("failed to retrieve peers for scanning: %w", err)
 		} else if len(peers) == 0 {
 			break
 		}
+		log.Debug("scanning peers", zap.Int("count", len(peers)), zap.Int("inflight", len(sema)))
 
 		tip, err := m.explorer.ConsensusTip()
 		if err != nil {
@@ -197,8 +202,13 @@ func (m *Manager) scanPeers(ctx context.Context) error {
 			minPeerHeight = tip.Height - maxBlockLag
 		}
 
+	scanLoop:
 		for _, p := range peers {
-			sema <- struct{}{}
+			select {
+			case <-ctx.Done():
+				break scanLoop
+			case sema <- struct{}{}:
+			}
 
 			log := log.With(zap.String("peer", p.Address))
 			wg.Go(func() {
@@ -209,7 +219,7 @@ func (m *Manager) scanPeers(ctx context.Context) error {
 					FailureRate: p.FailureRate,
 				}
 
-				ctx, cancel := context.WithTimeout(ctx, time.Minute)
+				ctx, cancel := context.WithTimeout(ctx, scanTimeout)
 				defer cancel()
 
 				log.Debug("starting peer scan")
@@ -221,20 +231,23 @@ func (m *Manager) scanPeers(ctx context.Context) error {
 					scan.NextScanTime = time.Now().Add(m.scanInterval + failureAdjustment)
 				}
 				firstScan := time.Duration(p.LastScanAttempt.Unix()) == 0 // the database stores zero time as Unix 0, not the Go zero time
-				scan.FailureRate = adjustFailureRate(p.FailureRate, firstScan, scan.Successful)
+				if firstScan && scan.Successful {
+					// for the first successful scan, set the failure rate
+					// to 0.5 to avoid overly optimistic initial values
+					p.FailureRate = 0.5
+				}
+				scan.FailureRate = adjustFailureRate(p.FailureRate, scan.Successful)
 
 				if err := m.store.AddScan(scan); err != nil {
 					log.Error("failed to record peer scan result", zap.Error(err))
 				}
 			})
 		}
-
-		// wait for scans to complete before fetching more peers for
-		// scanning since the next scan time is not updated until after
-		// the scan completes
-		wg.Wait()
 	}
-	return nil
+
+	// wait for in-flight scans to complete
+	wg.Wait()
+	return ctx.Err()
 }
 
 // Close shuts down the peer manager.
@@ -345,14 +358,11 @@ func NewManager(explorer Explorer, locator geoip.Locator, genesisState consensus
 	return m, nil
 }
 
-func adjustFailureRate(current float64, first, success bool) float64 {
+func adjustFailureRate(current float64, success bool) float64 {
 	const emaAlpha = 0.2
 	sample := 1.0
 	if success {
 		sample = 0.0
-	}
-	if first {
-		return sample
 	}
 	return emaAlpha*sample + (1.0-emaAlpha)*current
 }
