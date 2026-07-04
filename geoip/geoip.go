@@ -1,19 +1,28 @@
 package geoip
 
 import (
-	_ "embed" // needed for geolocation database
+	"compress/gzip"
 	"fmt"
+	"io"
 	"math"
 	"net"
+	"net/http"
+	"os"
+	"path/filepath"
 	"sync"
 
 	"github.com/oschwald/geoip2-golang"
+	"go.uber.org/zap"
 )
 
-//go:embed GeoLite2-City.mmdb
-var maxMindCityDB []byte
+const (
+	radiusKm = 6371.0088
 
-const radiusKm = 6371.0088
+	// maxMindCityDBURL is the URL to download the GeoLite2-City database from.
+	maxMindCityDBURL = "https://public.sia.tech/indexd/GeoLite2-City.mmdb.gz"
+	// maxMindCityDBFilename is the filename of the GeoLite2-City database.
+	maxMindCityDBFilename = "GeoLite2-City.mmdb"
+)
 
 // A Location represents an ISO 3166-1 A-2 country codes and an approximate
 // latitude/longitude.
@@ -89,20 +98,63 @@ func (m *maxMindLocator) Close() error {
 	return m.db.Close()
 }
 
-// NewMaxMindLocator returns a Locator that uses an underlying MaxMind
-// database.  If no path is provided, a default embedded GeoLite2-City database
-// is used.
-func NewMaxMindLocator(path string) (Locator, error) {
-	var db *geoip2.Reader
-	var err error
-	if path == "" {
-		db, err = geoip2.FromBytes(maxMindCityDB)
-	} else {
-		db, err = geoip2.Open(path)
+// downloadMaxMindDB downloads the GeoLite2-City database to the given path.
+func downloadMaxMindDB(path string) error {
+	resp, err := http.Get(maxMindCityDBURL)
+	if err != nil {
+		return fmt.Errorf("failed to download MaxMind database: %w", err)
 	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("failed to download MaxMind database: unexpected status %d", resp.StatusCode)
+	}
+
+	gr, err := gzip.NewReader(resp.Body)
+	if err != nil {
+		return fmt.Errorf("failed to create gzip reader: %w", err)
+	}
+	defer gr.Close()
+
+	f, err := os.CreateTemp(filepath.Dir(path), ".geolite2-*.mmdb.tmp")
+	if err != nil {
+		return fmt.Errorf("failed to create temp file: %w", err)
+	}
+	defer func() {
+		f.Close()
+		os.Remove(f.Name())
+	}()
+
+	if _, err := io.Copy(f, gr); err != nil {
+		return fmt.Errorf("failed to write MaxMind database: %w", err)
+	} else if err := f.Sync(); err != nil {
+		return fmt.Errorf("failed to sync temp file: %w", err)
+	} else if err := f.Close(); err != nil {
+		return fmt.Errorf("failed to close temp file: %w", err)
+	} else if err := os.Rename(f.Name(), path); err != nil && !os.IsExist(err) {
+		return fmt.Errorf("failed to rename temp file: %w", err)
+	}
+	return nil
+}
+
+// NewMaxMindLocator returns a Locator that uses an underlying MaxMind
+// database. The dataDir is checked for a GeoLite2-City.mmdb file. If
+// one does not exist, it is downloaded from sia.tech.
+func NewMaxMindLocator(dataDir string, log *zap.Logger) (Locator, error) {
+	path := filepath.Join(dataDir, maxMindCityDBFilename)
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		log.Info("downloading GeoLite2 database", zap.String("url", maxMindCityDBURL), zap.String("path", path))
+		if err := downloadMaxMindDB(path); err != nil {
+			return nil, err
+		}
+		log.Info("GeoLite2 database downloaded successfully")
+	} else if err != nil {
+		return nil, fmt.Errorf("failed to stat MaxMind database: %w", err)
+	}
+
+	db, err := geoip2.Open(path)
 	if err != nil {
 		return nil, err
 	}
-
 	return &maxMindLocator{db: db}, nil
 }

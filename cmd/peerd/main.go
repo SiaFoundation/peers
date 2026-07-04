@@ -103,7 +103,7 @@ func main() {
 
 	explorer := eapi.NewClient(explorerURL, "")
 
-	locator, err := geoip.NewMaxMindLocator("")
+	locator, err := geoip.NewMaxMindLocator(dir, log.Named("geoip"))
 	if err != nil {
 		log.Panic("failed to create geoip locator", zap.Error(err))
 	}
