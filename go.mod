@@ -16,7 +16,6 @@ require (
 	github.com/julienschmidt/httprouter v1.3.0 // indirect
 	github.com/oschwald/maxminddb-golang v1.13.0 // indirect
 	github.com/quic-go/quic-go v0.60.0 // indirect
-	go.etcd.io/bbolt v1.5.0 // indirect
 	go.sia.tech/mux v1.5.2 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	golang.org/x/crypto v0.53.0 // indirect
