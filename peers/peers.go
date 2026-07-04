@@ -272,6 +272,7 @@ func (m *Manager) Peers(offset, limit int) ([]Peer, error) {
 	return m.store.Peers(offset, limit)
 }
 
+// Peer retrieves a single peer by its address.
 func (m *Manager) Peer(addr string) (Peer, error) {
 	return m.store.Peer(addr)
 }
@@ -298,7 +299,6 @@ func (m *Manager) BootstrapPeers(limit int) (peers []string, err error) {
 			case time.Since(p.LastSuccessfulScan) > 24*time.Hour:
 				log.Debug("skipping stale peer for bootstrap list", zap.Time("lastSuccessfulScan", p.LastSuccessfulScan))
 				continue // skip stale peers
-
 			}
 
 			locations, err := m.store.PeerLocations(p.Address)
