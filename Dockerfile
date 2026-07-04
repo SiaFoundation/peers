@@ -2,9 +2,6 @@ FROM docker.io/library/golang:1.26 AS builder
 
 WORKDIR /peerd
 
-# mark as safe in git
-RUN git config --global --add safe.directory .
-
 # Install dependencies
 COPY go.mod go.sum ./
 RUN go mod download
