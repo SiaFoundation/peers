@@ -4,19 +4,19 @@ versioned_files = ["go.mod"]
 ignore_go_major_versioning = true
 
 [[package.assets]]
-path = "release/peerd_linux_amd64.zip"
+path = "release/peers_linux_amd64.zip"
 
 [[package.assets]]
-path = "release/peerd_linux_arm64.zip"
+path = "release/peers_linux_arm64.zip"
 
 [[package.assets]]
-path = "release/peerd_darwin_amd64.zip"
+path = "release/peers_darwin_amd64.zip"
 
 [[package.assets]]
-path = "release/peerd_darwin_arm64.zip"
+path = "release/peers_darwin_arm64.zip"
 
 [[package.assets]]
-path = "release/peerd_windows_amd64.zip"
+path = "release/peers_windows_amd64.zip"
 
 [[workflows]]
 name = "document-change"
@@ -67,4 +67,4 @@ type = "Release"
 
 [github]
 owner = "SiaFoundation"
-repo = "peerd"
+repo = "peers"

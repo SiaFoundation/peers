@@ -47,7 +47,7 @@ docker run -d \
   --name peerd \
   -p 8080:8080 \
   -v /data:/data \
-  ghcr.io/siafoundation/peerd:latest
+  ghcr.io/siafoundation/peers:latest
 ```
 
 ---

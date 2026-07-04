@@ -20,7 +20,7 @@ FROM debian:bookworm-slim
 LABEL maintainer="The Sia Foundation <info@sia.tech>" \
     org.opencontainers.image.description.vendor="The Sia Foundation" \
     org.opencontainers.image.description="A troubleshooter container - troubleshoot host connection issues" \
-    org.opencontainers.image.source="https://github.com/SiaFoundation/host-troubleshoot" \
+    org.opencontainers.image.source="https://github.com/SiaFoundation/peers" \
     org.opencontainers.image.licenses=MIT
 
 # Install ca-certificates
