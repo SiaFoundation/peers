@@ -1,4 +1,4 @@
-module go.sia.tech/peerd // v0.1.0
+module go.sia.tech/peerd // v0.1.1
 
 go 1.26.0
 
